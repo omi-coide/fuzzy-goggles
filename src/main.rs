@@ -5,10 +5,7 @@ use yly_tui::tui::Tui;
 use std::io;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use packer::Packer;
-#[derive(Packer)]
-#[packer(source = "static")]
-struct Assets;
+use yly_tui::assets::Assets;
 fn main() -> AppResult<()> {
     // Create an application.
     let mut app = App::new();

@@ -88,7 +88,14 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                 l.borrow()
                     .articles
                     .iter()
-                    .map(|a| ListItem::new(a.to_string()))
+                    .map(|a| {
+                        let item = if let Some(file_name) = a.strip_suffix(".html") {
+                            file_name.to_string()
+                        } else {
+                            a.to_string()
+                        };
+                        ListItem::new(item)
+                    })
                     .collect::<Vec<_>>(),
             )
             .block(Block::default().borders(Borders::ALL).title("Select Record..."))

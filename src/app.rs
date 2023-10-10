@@ -2,9 +2,9 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap},
     error, fs,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, hash::Hash,
 };
-
+const ARTICLE_DIR: &str = ".";
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 
@@ -22,6 +22,7 @@ pub struct App {
 pub struct AppState {
     pub timer: Instant,
     pub ui: AppUIState,
+    pub articles: BTreeMap<String,String>
 }
 #[derive(Debug, Clone)]
 pub enum AppUIState {
@@ -33,38 +34,31 @@ use html2text::custom_render;
 use html2text::Control;
 #[derive(Debug, Clone)]
 pub struct ArticleState {
-    article: String,
-    pub pages: Vec<Page>,
-    pub index: f32,                       // 当前页码
+    pub article: String,
     pub bookmark: usize,                  // 阅读进度(0.0-1.0之间)
+    pub progress: f32,          // 全局阅读进度
+    pub mask_progress: f32,     // 页内动画进度
     pub crypt: HashMap<uuid::Uuid, bool>, //加密情况
-    to_load: Vec<Control>,                // 装载序列时需要使用倒序
-    pub display: Vec<Control>,
-    pub requiring_psk: Option<uuid::Uuid>, // 代表当前正在请求解密一个密码
 }
 
 impl ArticleState {
     fn tick(&mut self) {
-        if self.to_load.is_empty() {
+        if self.mask_progress>= 0.999999 {
             return;
         }
-        let item = self
-            .to_load
-            .pop()
-            .expect("empty Article to_load, how did it pass the check?");
-        match item {
-            Control::Default
-            | Control::NoBreakBegin
-            | Control::NoBreakEnd
-            | Control::RedactedBegin(_, _)
-            | Control::RedactedEnd(_) => panic!("These Marker Controls shouldn't be passed to tui : {:#?}",item),
-            Control::Str(_)
-            |Control::Image(_, _, _)
-            |Control::Bell(_)
-            |Control::LF
-            |Control::StrRedacted(_, _)
-            |Control::Audio(_) => self.display.push(item),
-        }
+        // match item {
+        //     Control::Default
+        //     | Control::NoBreakBegin
+        //     | Control::NoBreakEnd
+        //     | Control::RedactedBegin(_, _)
+        //     | Control::RedactedEnd(_) => panic!("These Marker Controls shouldn't be passed to tui : {:#?}",item),
+        //     Control::Str(_)
+        //     |Control::Image(_, _, _)
+        //     |Control::Bell(_)
+        //     |Control::LF
+        //     |Control::StrRedacted(_, _)
+        //     |Control::Audio(_) => self.display.push(item),
+        // }
     }
 }
 #[derive(Debug, Clone)]
@@ -117,6 +111,7 @@ impl Default for AppState {
         AppState {
             timer: Instant::now(),
             ui: AppUIState::default(),
+            articles: Helper::read_files_to_map(Helper::build_article_list(ARTICLE_DIR)),
         }
     }
 }
@@ -143,6 +138,7 @@ impl Default for App {
                 proto
             },
         }
+        
     }
 }
 
@@ -169,11 +165,7 @@ impl App {
         let next_state = match s {
             StartingState::Finished => AppUIState::ListArticles(
                 ListArticleState {
-                    articles: vec![
-                        "Article1".to_string(),
-                        "Article2".to_string(),
-                        "Article3".to_string(),
-                    ],
+                    articles: state.articles.keys().into_iter().cloned().collect(),
                     list_state: {
                         let mut new = ListState::default();
                         new.select(Some(0));
@@ -214,18 +206,19 @@ impl App {
         }
     }
     pub fn try_select_article(&mut self) {
+        let NOT_FOUND_HTML: String = "<body>404 Not Found</body>".to_string();
         let new_state = match &self.state.ui {
             AppUIState::ListArticles(x) => {
                 if let Some(index) = x.borrow().list_state.selected() {
+                    let articles_borrow = &x.borrow().articles;
+                    let article_path = articles_borrow.get(index).expect("选择的文章超出数组长度");
+                    let article = self.state.articles.get(article_path).unwrap_or(&NOT_FOUND_HTML);
                     let new_state = AppUIState::DisplayArticles(ArticleState {
-                        article: String::new(),
-                        pages: vec![],
-                        index:0.0,
+                        article: article.to_string(),
+                        progress: 0.0,
+                        mask_progress: 0.0,
                         crypt: HashMap::default(),
                         bookmark: 0,
-                        to_load: todo!(),
-                        display: todo!(),
-                        requiring_psk: todo!(),
                     });
                     Some(new_state)
                 } else {
@@ -256,8 +249,17 @@ impl App {
             return;
         }
     }
-    fn build_article_list() -> Vec<String> {
-        let dir = ".";
+
+    // pub fn load_articles(&mut self) {
+    //     
+    //     let files = Self::build_article_list(ARTICLE_DIR);
+    //     let map = Self::read_files_to_map(files);
+    // }
+}
+
+struct Helper;
+impl Helper {
+    fn build_article_list(dir:&str) -> Vec<String> {
         let mut html_files = Vec::new();
         use walkdir::WalkDir;
         for entry in WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
@@ -278,17 +280,13 @@ impl App {
 
         for file in files {
             if let Ok(content) = fs::read_to_string(file.clone()) {
-                if let Some(file_name) = file.strip_suffix(".html") {
-                    file_contents.insert(file_name.to_owned(), content);
-                }
+                // if let Some(file_name) = file.strip_suffix(".html") {
+                file_contents.insert(file.to_owned(), content);
+                // }
             }
         }
 
         file_contents
-    }
-    pub fn load_articles(&mut self) {
-        let files = Self::build_article_list();
-        let map = Self::read_files_to_map(files);
     }
 }
 

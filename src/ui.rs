@@ -1,23 +1,20 @@
 use crate::app::{App, StartingState};
-use crate::assets::Assets;
-use once_cell::sync::Lazy;
+
+
 use ratatui::prelude::{Constraint, Direction, Frame, Layout};
-use ratatui::style::Modifier;
+
 use ratatui::{
     backend::Backend,
-    layout::Alignment,
     style::{Color, Style},
-    widgets::{Block, BorderType, Borders, Gauge, Paragraph},
+    widgets::{Block, Borders, Gauge, Paragraph},
 };
-use std::cell::{Cell, RefCell};
-use std::io::Cursor;
 
-use image::io::Reader;
-use ratatui::widgets::{List, Widget};
+
+
+
+use ratatui::widgets::{List};
 use ratatui_image::{
-    picker::{Picker, ProtocolType},
-    protocol::{ImageSource, ResizeProtocol},
-    Resize, ResizeImage,
+    ResizeImage,
 };
 use rust_embed::RustEmbed;
 
@@ -41,7 +38,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                     Constraint::Length(3),
                 ])
                 .split(frame.size());
-            let margin = (frame.size().width - height)/2;
+            let _margin = (frame.size().width - height)/2;
             let rect_for_logo = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![Constraint::Percentage(33),Constraint::Percentage(33),Constraint::Percentage(33)])

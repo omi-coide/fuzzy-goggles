@@ -1,9 +1,5 @@
 use ratatui::{
-    backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout},
-    text::Line,
-    widgets::{Block, Borders, Paragraph, Wrap, Widget, StatefulWidget},
-    Frame, Terminal, style::Style,
+    widgets::{StatefulWidget},
 };
 struct Mask {}
 struct MaskState {
@@ -33,14 +29,14 @@ impl StatefulWidget for Mask {
         // try_skip
         for i in start_x..width {
             if buf.get(i, start_y).symbol.eq(" "){
-                state.progress += 1.0 / (area.width as f32 * area.height as f32) as f32;
+                state.progress += 1.0 / (area.width as f32 * area.height as f32);
             }
         }
         let len = buf.content.len();
         for index in 0..len {
-            let should_clear:bool;
+            
             let (x,y) = buf.pos_of(index);
-            should_clear = !is_in(x,y,start_x,start_y);
+            let should_clear:bool = !is_in(x,y,start_x,start_y);
             if should_clear {
                 if buf.get(x, y).symbol.eq(" "){
                     continue;
@@ -52,7 +48,7 @@ impl StatefulWidget for Mask {
         fn is_in(x:u16,y:u16,x_:u16,y_:u16)-> bool {
             // if this is true, should NOT clear;
             if y < y_ {
-                return true;
+                true
             } else if y==y_{
                 return x<=x_;
             } else {

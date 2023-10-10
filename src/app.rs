@@ -2,7 +2,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap},
     error, fs,
-    time::{Duration, Instant}, hash::Hash,
+    time::{Duration, Instant},
 };
 const ARTICLE_DIR: &str = ".";
 /// Application result type.
@@ -30,8 +30,8 @@ pub enum AppUIState {
     ListArticles(RefCell<ListArticleState>),
     DisplayArticles(ArticleState),
 }
-use html2text::custom_render;
-use html2text::Control;
+
+
 #[derive(Debug, Clone)]
 pub struct ArticleState {
     pub article: String,
@@ -44,7 +44,6 @@ pub struct ArticleState {
 impl ArticleState {
     fn tick(&mut self) {
         if self.mask_progress>= 0.999999 {
-            return;
         }
         // match item {
         //     Control::Default
@@ -134,8 +133,8 @@ impl Default for App {
                 let image = Reader::with_format(data, image::ImageFormat::Png);
                 let dyn_img = image.decode().unwrap();
                 let mut picker = Picker::from_termios(None).unwrap();
-                let proto = picker.new_state(dyn_img);
-                proto
+                
+                picker.new_state(dyn_img) as _
             },
         }
         
@@ -157,7 +156,7 @@ impl App {
         let current_state = state.clone();
         match current_state.ui {
             AppUIState::Starting(x) => App::tick_starting(x, state),
-            AppUIState::ListArticles(x) => (),
+            AppUIState::ListArticles(_x) => (),
             AppUIState::DisplayArticles(_) => todo!(),
         };
     }
@@ -165,7 +164,7 @@ impl App {
         let next_state = match s {
             StartingState::Finished => AppUIState::ListArticles(
                 ListArticleState {
-                    articles: state.articles.keys().into_iter().cloned().collect(),
+                    articles: state.articles.keys().cloned().collect(),
                     list_state: {
                         let mut new = ListState::default();
                         new.select(Some(0));
@@ -237,7 +236,6 @@ impl App {
             new_state = s.clone();
             new_state.get_mut().checked_up();
             self.state.ui = AppUIState::ListArticles(new_state);
-            return;
         }
     }
     pub fn article_down(&mut self) {
@@ -246,7 +244,6 @@ impl App {
             new_state = s.clone();
             new_state.get_mut().checked_down();
             self.state.ui = AppUIState::ListArticles(new_state);
-            return;
         }
     }
 
@@ -290,7 +287,7 @@ impl Helper {
     }
 }
 
-use image::DynamicImage;
+
 use ratatui::widgets::ListState;
 use ratatui_image::protocol::ResizeProtocol;
 

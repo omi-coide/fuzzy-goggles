@@ -5,7 +5,7 @@ use yly_tui::tui::Tui;
 use std::io;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use yly_tui::assets::Assets;
+
 fn main() -> AppResult<()> {
     // Create an application.
     let mut app = App::new();

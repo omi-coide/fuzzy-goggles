@@ -1,14 +1,13 @@
-use std::io::Cursor;
+
 
 use ratatui::widgets::Widget;
-use rust_embed::RustEmbed;
-use image::io::Reader;
+
+
 use ratatui_image::{
-    picker::{Picker, ProtocolType},
-    Resize, ResizeImage, protocol::{ImageSource, ResizeProtocol},
+    picker::{Picker, ProtocolType}, ResizeImage,
   };
 
-use crate::assets::Assets;
+
 struct Logo{
     image: image::DynamicImage
 }
@@ -20,10 +19,10 @@ struct Logo{
 //     }
 // }
 impl Widget for Logo {
-    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
+    fn render(self, _area: ratatui::prelude::Rect, _buf: &mut ratatui::prelude::Buffer) {
         let mut picker = Picker::from_termios(None).unwrap();
         picker.set(ProtocolType::Halfblocks);
-        let image = ResizeImage::new(None);
+        let _image = ResizeImage::new(None);
         //ra::render();
     }
 }

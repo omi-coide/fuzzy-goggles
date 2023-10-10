@@ -220,9 +220,12 @@ impl App {
                     let new_state = AppUIState::DisplayArticles(ArticleState {
                         article: String::new(),
                         pages: vec![],
-                        index,
+                        index:0.0,
                         crypt: HashMap::default(),
                         bookmark: 0,
+                        to_load: todo!(),
+                        display: todo!(),
+                        requiring_psk: todo!(),
                     });
                     Some(new_state)
                 } else {
@@ -274,7 +277,7 @@ impl App {
         let mut file_contents = BTreeMap::new();
 
         for file in files {
-            if let Ok(content) = fs::read_to_string(file) {
+            if let Ok(content) = fs::read_to_string(file.clone()) {
                 if let Some(file_name) = file.strip_suffix(".html") {
                     file_contents.insert(file_name.to_owned(), content);
                 }
@@ -289,6 +292,7 @@ impl App {
     }
 }
 
+use image::DynamicImage;
 use ratatui::widgets::ListState;
 use ratatui_image::protocol::ResizeProtocol;
 

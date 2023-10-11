@@ -1,3 +1,4 @@
+#![feature(const_trait_impl)]
 use yly_tui::app::{App, AppResult};
 use yly_tui::event::{Event, EventHandler};
 use yly_tui::handler::handle_key_events;
@@ -5,6 +6,7 @@ use yly_tui::tui::Tui;
 use std::io;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+
 
 fn main() -> AppResult<()> {
     // Create an application.
@@ -16,7 +18,8 @@ fn main() -> AppResult<()> {
     let events = EventHandler::new(250);
     let mut tui = Tui::new(terminal, events);
     tui.init()?;
-
+    const WIDTH:u16 = 80;
+    const HEIGHT:u16 = 40;
     // Start the main loop.
     while app.running {
         // Render the user interface.

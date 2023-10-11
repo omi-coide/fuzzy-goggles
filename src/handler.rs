@@ -27,7 +27,7 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         _ => {}
     }
 
-    match app.state.ui {
+    match &app.state.ui {
         crate::app::AppUIState::Starting(_) => {
             match key_event.code {
                         // Counter handlers
@@ -62,7 +62,18 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 _ => (),
             }
         }
-        crate::app::AppUIState::DisplayArticles(_) => todo!(),
+        crate::app::AppUIState::DisplayArticles(s) => {
+            let mut s= s.borrow_mut();
+            match key_event.code {
+                KeyCode::PageDown => {
+                    s.progress =  (s.progress + 1.0 / s.pages.len() as f32).clamp(0.0,1.0);
+                }
+                KeyCode::PageUp => {
+                    s.progress =  (s.progress - 1.0 / s.pages.len() as f32).clamp(0.0,1.0);
+                }
+                _ => ()
+            }
+        },
     }
     match key_event.code {
         // Exit application on `ESC` or `q`

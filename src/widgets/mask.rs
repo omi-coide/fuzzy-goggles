@@ -1,6 +1,4 @@
-use ratatui::{
-    widgets::{StatefulWidget},
-};
+use ratatui::widgets::StatefulWidget;
 struct Mask {}
 struct MaskState {
     pub progress:f32,
@@ -45,6 +43,7 @@ impl StatefulWidget for Mask {
                 }  
             }
         }
+        
         fn is_in(x:u16,y:u16,x_:u16,y_:u16)-> bool {
             // if this is true, should NOT clear;
             if y < y_ {

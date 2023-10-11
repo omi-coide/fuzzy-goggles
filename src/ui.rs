@@ -1,6 +1,9 @@
-use crate::app::{App, StartingState};
+use std::collections::HashMap;
+
+use crate::app::{App, StartingState, Page};
 
 
+use html2text::{custom_render, Control};
 use ratatui::prelude::{Constraint, Direction, Frame, Layout};
 
 use ratatui::{
@@ -12,10 +15,8 @@ use ratatui::{
 
 
 
-use ratatui::widgets::{List};
-use ratatui_image::{
-    ResizeImage,
-};
+use ratatui::widgets::List;
+use ratatui_image::ResizeImage;
 use rust_embed::RustEmbed;
 
 /// Renders the user interface widgets.
@@ -101,12 +102,130 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             .highlight_symbol(">>");
             frame.render_stateful_widget(list, vlayout[1], &mut l.get_mut().list_state)
         }
-        crate::app::AppUIState::DisplayArticles(_) => {
+        crate::app::AppUIState::DisplayArticles(s) => {
             // frame.render_widget()
-            todo!()
+            let s = s.get_mut();
+            use stringreader::StringReader;
+            let layout = Layout::default().direction(Direction::Vertical)
+            .constraints(vec![
+                Constraint::Min(3),
+                Constraint::Length(3),   //Status bar and text input
+                ])
+                .split(frame.size());
+            let mut skip_rerender = false;
+            if s.height == layout[0].height.into() && s.width == layout[0].width.into() {
+                skip_rerender = true;
+            }
+            if !skip_rerender {
+                s.height = layout[0].height.into();
+                s.width = layout[0].width.into();
+                let reader = StringReader::new(s.article.as_str());
+                let mut controls = custom_render(reader, layout[0].width.into(), my_map).expect("文本解析错误");
+                
+                let pages: Vec<Page> =try_build_page(&mut controls,layout[0].height.into());
+                s.pages = pages;
+            }
+            if s.pages.is_empty() {
+                frame.render_widget(Paragraph::new("无内容"), layout[0]);
+                frame.render_widget(Paragraph::new(format!("页{}/{}",0,s.pages.len())), layout[1]);
+                return;
+            }
+            let pageindex = (s.pages.len()-1)* s.progress as usize;
+            let page = &s.pages[pageindex];
+            let mut pagestate = crate::widgets::page::PageState {
+                progress: 0.0,
+                rendered: page.lines.clone(),
+                to_draw: vec![],
+                image_cache: s.image_cache.clone()
+            };
+            frame.render_widget(Paragraph::new(format!("页{}/{}",pageindex+1,s.pages.len())), layout[1]);
+            frame.render_stateful_widget(crate::widgets::page::PageDisplay{}, layout[0], &mut pagestate);
         },
     }
 }
 
+use html2text::try_build_block;
+
+fn try_build_page(controls:&mut Vec<Control>,max_height:u16)->Vec<Page>{
+    let mut height:usize = 0;
+    let mut page = Page::default();
+    let mut result = vec![];
+    let blocks = try_build_block(controls);
+    for mut block in blocks {
+        if height + block.height > max_height.into() {
+            result.push(page);
+            page = Page::default();
+            page.lines = block.inner;
+            height = block.height;
+        } else {
+            page.lines.append(&mut block.inner);
+            height += block.height;
+        }
+    }
+    if !page.lines.is_empty() {
+        result.push(page);
+    }
+    result
+}
+use html2text::render::text_renderer::RichAnnotation;
+
+pub fn my_map(
+    annotation: &RichAnnotation,
+) -> (String, Box<dyn Fn(&String) -> String>, String) {
+    use termion::color::*;
+    use RichAnnotation::*;
+    match annotation {
+        Default => ("".into(), Box::new(|s| s.to_string()), "".into()),
+        Link(_) => (
+            format!("{}", termion::style::Underline),
+            Box::new(|s| s.to_string()),
+            format!("{}", termion::style::Reset),
+        ),
+        Image(_,..) => (
+            format!("{}", Fg(Blue)),
+            Box::new(|s| s.to_string()),
+            format!("{}", Fg(Reset)),
+        ),
+        Emphasis => (
+            format!("{}", termion::style::Bold),
+            Box::new(|s| s.to_string()),
+            format!("{}", termion::style::Reset),
+        ),
+        Strong => (
+            format!("{}", Fg(LightYellow)),
+            Box::new(|s| s.to_string()),
+            format!("{}", Fg(Reset)),
+        ),
+        Strikeout => (
+            format!("{}", Fg(LightBlack)),
+            Box::new(|s| s.to_string()),
+            format!("{}", Fg(Reset)),
+        ),
+        Code => (
+            format!("{}", Fg(Blue)),
+            Box::new(|s| s.to_string()),
+            format!("{}", Fg(Reset)),
+        ),
+        Preformat(_) => (
+            format!("{}", Fg(Blue)),
+            Box::new(|s| s.to_string()),
+            format!("{}", Fg(Reset)),
+        ),
+        Colored(c) => (
+            (format!(
+                "{}",
+                Fg(AnsiValue(colvert::ansi256_from_rgb((c.r, c.g, c.b))))
+            )),
+            Box::new(|s| s.to_string()),
+            format!("{}", Fg(Reset)),
+        ),
+        Bell => todo!(),
+        NoBreakBegin => (String::new(), Box::new(|s| s.to_string()), String::new()),
+        NoBreakEnd => (String::new(), Box::new(|s| s.to_string()), String::new()),
+        RedactedBegin(_, _) => (String::new(), Box::new(|s| s.to_string()), String::new()),
+        RedactedEnd(_, _) => (String::new(), Box::new(|s| s.to_string()), String::new()),
+        Custom(_, _) => (String::new(), Box::new(|s| s.to_string()), String::new()),
+    }
+}
 
 

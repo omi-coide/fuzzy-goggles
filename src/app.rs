@@ -1,8 +1,8 @@
 use std::{
-    cell::RefCell,
+    cell::{RefCell, Ref},
     collections::{BTreeMap, HashMap},
     error, fs,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, hash::Hash, rc::Rc,
 };
 const ARTICLE_DIR: &str = ".";
 /// Application result type.
@@ -28,17 +28,26 @@ pub struct AppState {
 pub enum AppUIState {
     Starting(StartingState),
     ListArticles(RefCell<ListArticleState>),
-    DisplayArticles(ArticleState),
+    DisplayArticles(RefCell<ArticleState>),
 }
+use std::fmt::Debug;
 
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ArticleState {
     pub article: String,
     pub bookmark: usize,                  // 阅读进度(0.0-1.0之间)
     pub progress: f32,          // 全局阅读进度
     pub mask_progress: f32,     // 页内动画进度
+    pub pages: Vec<Page>,
+    pub height: usize,
+    pub width: usize,
     pub crypt: HashMap<uuid::Uuid, bool>, //加密情况
+    pub image_cache: Rc<RefCell<HashMap<String,Box<dyn ResizeProtocol>>>>
+}
+impl Debug for ArticleState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArticleState").field("article", &self.article).field("bookmark", &self.bookmark).field("progress", &self.progress).field("mask_progress", &self.mask_progress).field("pages", &self.pages).field("height", &self.height).field("width", &self.width).field("crypt", &self.crypt).field("image_cache", &"nope").finish()
+    }
 }
 
 impl ArticleState {
@@ -67,9 +76,12 @@ pub enum StartingState {
 }
 #[derive(Debug, Clone)]
 pub struct Page {
-    lines: Vec<String>,
-    height: usize,
-    width: usize,
+    pub lines: Vec<Control>,
+}
+impl Default for Page {
+    fn default() -> Self {
+        Page { lines: vec![]}
+    }
 }
 #[derive(Debug, Clone)]
 pub struct ListArticleState {
@@ -78,7 +90,7 @@ pub struct ListArticleState {
 }
 impl ListArticleState {
     pub fn checked_down(&mut self) {
-        let mut next = 0;
+        let next;
         if let Some(current) = self.list_state.selected() {
             next = if current + 1 >= self.articles.len() {
                 self.articles.len() - 1
@@ -157,7 +169,7 @@ impl App {
         match current_state.ui {
             AppUIState::Starting(x) => App::tick_starting(x, state),
             AppUIState::ListArticles(_x) => (),
-            AppUIState::DisplayArticles(_) => todo!(),
+            AppUIState::DisplayArticles(_) => (),  // TODO-YLY
         };
     }
     fn tick_starting(s: StartingState, state: &mut AppState) {
@@ -212,13 +224,19 @@ impl App {
                     let articles_borrow = &x.borrow().articles;
                     let article_path = articles_borrow.get(index).expect("选择的文章超出数组长度");
                     let article = self.state.articles.get(article_path).unwrap_or(&NOT_FOUND_HTML);
-                    let new_state = AppUIState::DisplayArticles(ArticleState {
+                    let new_state = AppUIState::DisplayArticles(
+                        RefCell::new(ArticleState {
                         article: article.to_string(),
                         progress: 0.0,
                         mask_progress: 0.0,
                         crypt: HashMap::default(),
                         bookmark: 0,
-                    });
+                        pages: vec![],
+                        height: 0,
+                        width: 0,
+                        image_cache: Rc::new(RefCell::new(HashMap::default())),
+                    })
+                );
                     Some(new_state)
                 } else {
                     None
@@ -288,6 +306,7 @@ impl Helper {
 }
 
 
+use html2text::Control;
 use ratatui::widgets::ListState;
 use ratatui_image::protocol::ResizeProtocol;
 

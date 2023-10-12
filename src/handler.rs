@@ -4,13 +4,9 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     // Global Key bindings
-
+// TODO 和这里逻辑类似，用handle_resize处理一下页面大小改变导致的串号问题，当改变大小时，从s.progress读取进度重新变成s.index
     match key_event.code {
-        // Exit application on `ESC` or `q`
-        KeyCode::Esc | KeyCode::Char('q') => {
-            app.quit();
-            return Ok(());
-        }
+
         // Exit application on `Ctrl-C`
         KeyCode::Char('c') | KeyCode::Char('C') => {
             if key_event.modifiers == KeyModifiers::CONTROL {
@@ -30,7 +26,19 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     match &app.state.ui {
         crate::app::AppUIState::Starting(_) => {
             match key_event.code {
-                        // Counter handlers
+                // Counter handlers
+                // Exit application on `ESC` or `q`
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    app.quit();
+                    return Ok(());
+                }
+                // Exit application on `Ctrl-C`
+                KeyCode::Char('c') | KeyCode::Char('C') => {
+                    if key_event.modifiers == KeyModifiers::CONTROL {
+                        app.quit();
+                    }
+                    return Ok(());
+                }
                 KeyCode::Enter => {
                     app.state.ui = AppUIState::Starting(crate::app::StartingState::Finished);
                     return Ok(());
@@ -42,12 +50,6 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             match key_event.code {
                 KeyCode::Esc | KeyCode::Char('q') => {
                     app.quit();
-                }
-                // Exit application on `Ctrl-C`
-                KeyCode::Char('c') | KeyCode::Char('C') => {
-                    if key_event.modifiers == KeyModifiers::CONTROL {
-                        app.quit();
-                    }
                 }
                 // Counter handlers
                 KeyCode::Enter => {
@@ -65,11 +67,28 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         crate::app::AppUIState::DisplayArticles(s) => {
             let mut s= s.borrow_mut();
             match key_event.code {
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    drop(s);
+                    app.state.ui = AppUIState::Starting(crate::app::StartingState::Finished);
+                }
+                KeyCode::Enter => {} // TODO
                 KeyCode::PageDown => {
-                    s.progress =  (s.progress + 1.0 / s.pages.len() as f32).clamp(0.0,1.0);
+                    let old_page_index = s.index;
+                    s.index = (s.index + 1).clamp(0, s.pages.len().checked_sub(1).unwrap_or(0));
+                    // let page = &s.pages[pageindex];
+                    if s.index != old_page_index {
+                        s.page_state.height=0;
+                        s.page_state.width=0;
+                    }
                 }
                 KeyCode::PageUp => {
-                    s.progress =  (s.progress - 1.0 / s.pages.len() as f32).clamp(0.0,1.0);
+                    let old_page_index = s.index;
+                    s.index = (s.index.checked_sub(1).unwrap_or(0)).clamp(0, s.pages.len().checked_sub(1).unwrap_or(0));
+                    // let page = &s.pages[pageindex];
+                    if s.index != old_page_index {
+                        s.page_state.height=0;
+                        s.page_state.width=0;
+                    }      
                 }
                 _ => ()
             }

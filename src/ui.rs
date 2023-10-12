@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::app::{App, StartingState, Page};
 
 
-use html2text::{custom_render, Control};
+use html2text::{just_render, just_parse ,Control};
 use ratatui::prelude::{Constraint, Direction, Frame, Layout};
 
 use ratatui::{
@@ -113,32 +113,31 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                 ])
                 .split(frame.size());
             let mut skip_rerender = false;
-            if s.height == layout[0].height.into() && s.width == layout[0].width.into() {
+            if s.page_state.height == layout[0].height.into() && s.page_state.width == layout[0].width.into() {
                 skip_rerender = true;
             }
             if !skip_rerender {
-                s.height = layout[0].height.into();
-                s.width = layout[0].width.into();
+                s.page_state.height = layout[0].height.into();
+                s.page_state.width = layout[0].width.into();
                 let reader = StringReader::new(s.article.as_str());
-                let mut controls = custom_render(reader, layout[0].width.into(), my_map).expect("文本解析错误");
+                let render_tree = just_parse(reader);
+                let mut controls = just_render(render_tree, layout[0].width.into(), my_map).expect("文本解析错误");
                 
                 let pages: Vec<Page> =try_build_page(&mut controls,layout[0].height.into());
                 s.pages = pages;
+                let pageindex = (s.pages.len()-1)* s.index as usize;
+                let page = &s.pages[pageindex];
+                s.page_state.rendered.clear();
+                s.page_state.to_draw = page.lines.clone();
             }
             if s.pages.is_empty() {
                 frame.render_widget(Paragraph::new("无内容"), layout[0]);
                 frame.render_widget(Paragraph::new(format!("页{}/{}",0,s.pages.len())), layout[1]);
                 return;
             }
-            let pageindex = (s.pages.len()-1)* s.progress as usize;
-            let page = &s.pages[pageindex];
-            let mut pagestate = crate::widgets::page::PageState {
-                progress: 0.0,
-                rendered: page.lines.clone(),
-                to_draw: vec![],
-                image_cache: s.image_cache.clone()
-            };
-            frame.render_widget(Paragraph::new(format!("页{}/{}",pageindex+1,s.pages.len())), layout[1]);
+            let pageindex = (s.pages.len()-1)* s.index as usize;
+            let mut pagestate = &mut s.page_state;
+            frame.render_widget(Paragraph::new(format!("页{}/{}, 宽{}高{}",pageindex+1,s.pages.len(), layout[0].width,layout[0].height)), layout[1]);
             frame.render_stateful_widget(crate::widgets::page::PageDisplay{}, layout[0], &mut pagestate);
         },
     }

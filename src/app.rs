@@ -1,8 +1,8 @@
 use std::{
-    cell::{RefCell, Ref},
+    cell::RefCell,
     collections::{BTreeMap, HashMap},
     error, fs,
-    time::{Duration, Instant}, hash::Hash, rc::Rc,
+    time::{Duration, Instant}, rc::Rc, vec,
 };
 const ARTICLE_DIR: &str = ".";
 /// Application result type.
@@ -36,17 +36,18 @@ use std::fmt::Debug;
 pub struct ArticleState {
     pub article: String,
     pub bookmark: usize,                  // 阅读进度(0.0-1.0之间)
-    pub progress: f32,          // 全局阅读进度
+    pub index: usize,          // 全局阅读进度
     pub mask_progress: f32,     // 页内动画进度
     pub pages: Vec<Page>,
-    pub height: usize,
-    pub width: usize,
-    pub crypt: HashMap<uuid::Uuid, bool>, //加密情况
-    pub image_cache: Rc<RefCell<HashMap<String,Box<dyn ResizeProtocol>>>>
+    // pub height: usize,
+    // pub width: usize,
+    pub crypt: HashMap<uuid::Uuid, (String, bool)>, //加密情况
+    pub image_cache: Rc<RefCell<HashMap<String,Box<dyn ResizeProtocol>>>>,
+    pub page_state: PageState
 }
 impl Debug for ArticleState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ArticleState").field("article", &self.article).field("bookmark", &self.bookmark).field("progress", &self.progress).field("mask_progress", &self.mask_progress).field("pages", &self.pages).field("height", &self.height).field("width", &self.width).field("crypt", &self.crypt).field("image_cache", &"nope").finish()
+        f.debug_struct("ArticleState").field("article", &self.article).field("bookmark", &self.bookmark).field("progress", &self.index).field("mask_progress", &self.mask_progress).field("pages", &self.pages).field("crypt", &self.crypt).field("image_cache", &"nope").finish()
     }
 }
 
@@ -172,6 +173,12 @@ impl App {
             AppUIState::DisplayArticles(_) => (),  // TODO-YLY
         };
     }
+    pub fn resize(x:u16,y:u16,state: &mut AppState){
+        match state.ui {
+            AppUIState::DisplayArticles(_) => todo!(),
+            _ => ()
+        }
+    }
     fn tick_starting(s: StartingState, state: &mut AppState) {
         let next_state = match s {
             StartingState::Finished => AppUIState::ListArticles(
@@ -224,19 +231,26 @@ impl App {
                     let articles_borrow = &x.borrow().articles;
                     let article_path = articles_borrow.get(index).expect("选择的文章超出数组长度");
                     let article = self.state.articles.get(article_path).unwrap_or(&NOT_FOUND_HTML);
+                    let a = Rc::new(RefCell::new(HashMap::default()));
                     let new_state = AppUIState::DisplayArticles(
                         RefCell::new(ArticleState {
-                        article: article.to_string(),
-                        progress: 0.0,
-                        mask_progress: 0.0,
-                        crypt: HashMap::default(),
-                        bookmark: 0,
-                        pages: vec![],
-                        height: 0,
-                        width: 0,
-                        image_cache: Rc::new(RefCell::new(HashMap::default())),
-                    })
-                );
+                            article: article.to_string(),
+                            index: 0,
+                            mask_progress: 0.0,
+                            crypt: HashMap::default(),
+                            bookmark: 0,
+                            pages: vec![],
+                            image_cache: a.clone(),
+                            page_state: PageState {
+                                progress: 0.0000,
+                                rendered: vec![],
+                                to_draw: vec![],
+                                height: 0,
+                                width: 0,
+                                image_cache: a.clone() ,
+                            }
+                        })
+                    );
                     Some(new_state)
                 } else {
                     None
@@ -310,4 +324,4 @@ use html2text::Control;
 use ratatui::widgets::ListState;
 use ratatui_image::protocol::ResizeProtocol;
 
-use crate::assets::Assets;
+use crate::{assets::Assets, widgets::page::PageState};

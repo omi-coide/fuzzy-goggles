@@ -34,11 +34,14 @@ use std::fmt::Debug;
 
 #[derive(Clone)]
 pub struct ArticleState {
-    pub article: String,
-    pub bookmark: usize,                  // 阅读进度(0.0-1.0之间)
+    pub article: RenderTree,
+    pub bookmark: f32,                  // 阅读进度(0.0-1.0之间)
     pub index: usize,          // 全局阅读进度
-    pub mask_progress: f32,     // 页内动画进度
+    /// 页内动画进度(未使用)
+    pub mask_progress: f32,     
     pub pages: Vec<Page>,
+    /// 重新生成页码的信号
+    pub reindex: bool,
     // pub height: usize,
     // pub width: usize,
     pub crypt: HashMap<uuid::Uuid, (String, bool)>, //加密情况
@@ -232,13 +235,14 @@ impl App {
                     let article_path = articles_borrow.get(index).expect("选择的文章超出数组长度");
                     let article = self.state.articles.get(article_path).unwrap_or(&NOT_FOUND_HTML);
                     let a = Rc::new(RefCell::new(HashMap::default()));
+                    let reader = stringreader::StringReader::new(article.as_str());
                     let new_state = AppUIState::DisplayArticles(
                         RefCell::new(ArticleState {
-                            article: article.to_string(),
+                            article: html2text::just_parse(reader),
                             index: 0,
                             mask_progress: 0.0,
                             crypt: HashMap::default(),
-                            bookmark: 0,
+                            bookmark: 0.0,
                             pages: vec![],
                             image_cache: a.clone(),
                             page_state: PageState {
@@ -248,7 +252,9 @@ impl App {
                                 height: 0,
                                 width: 0,
                                 image_cache: a.clone() ,
-                            }
+                                skip_draw: false,
+                            },
+                            reindex: true,
                         })
                     );
                     Some(new_state)
@@ -320,7 +326,7 @@ impl Helper {
 }
 
 
-use html2text::Control;
+use html2text::{Control, RenderTree};
 use ratatui::widgets::ListState;
 use ratatui_image::protocol::ResizeProtocol;
 

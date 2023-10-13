@@ -1,6 +1,16 @@
 use crate::app::{App, AppResult, AppUIState};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+pub fn handle_resize(x:u16,y:u16,app:&mut App)-> AppResult<()> {
+    match &app.state.ui {
+        AppUIState::DisplayArticles(s) => {
+            let mut s  = s.borrow_mut();
+            s.reindex = true;
+            Ok(())
+        },
+        _ => Ok(())
+    }
+}
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     // Global Key bindings
@@ -71,7 +81,9 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                     drop(s);
                     app.state.ui = AppUIState::Starting(crate::app::StartingState::Finished);
                 }
-                KeyCode::Enter => {} // TODO
+                KeyCode::Enter => {
+                    s.page_state.skip_draw = !s.page_state.skip_draw;
+                } // TODO
                 KeyCode::PageDown => {
                     let old_page_index = s.index;
                     s.index = (s.index + 1).clamp(0, s.pages.len().checked_sub(1).unwrap_or(0));
@@ -79,6 +91,11 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                     if s.index != old_page_index {
                         s.page_state.height=0;
                         s.page_state.width=0;
+                    }
+                    if s.pages.is_empty() {
+                        s.bookmark = 0.0;
+                    } else {
+                        s.bookmark = (s.index+1).clamp(1, s.pages.len())as f32  / s.pages.len() as f32;
                     }
                 }
                 KeyCode::PageUp => {
@@ -88,7 +105,12 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                     if s.index != old_page_index {
                         s.page_state.height=0;
                         s.page_state.width=0;
-                    }      
+                    }
+                    if s.pages.is_empty() {
+                        s.bookmark = 0.0;
+                    } else {
+                        s.bookmark = (s.index+1).clamp(1, s.pages.len())as f32  / s.pages.len() as f32;
+                    } 
                 }
                 _ => ()
             }

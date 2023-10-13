@@ -18,6 +18,8 @@ pub struct PageState {
     pub width: u16,
     pub to_draw: Vec<Control>,
     pub image_cache: Rc<RefCell<HashMap<String,Box<dyn ResizeProtocol>>>>,
+    /// 跳过动画
+    pub skip_draw: bool
     // pub acl: Rc<RefCell<HashMap<uuid::Uuid, bool>>>
 }
 // static mut cache: HashMap<String,Box<dyn ResizeProtocol>> = HashMap::default();
@@ -93,7 +95,11 @@ impl StatefulWidget for PageDisplay {
                         state.to_draw.remove(0);
                         return;
                     }
-                    state.rendered.push(Control::Str(s.remove(0).to_string()));
+                    if let Some(Control::Str(last)) =  state.rendered.last_mut(){
+                        last.push(s.remove(0));
+                    } else {
+                        state.rendered.push(Control::Str(s.remove(0).to_string()));
+                    }
                 },
                 Control::Image(_, _, _) => {
                     state.rendered.push(state.to_draw.remove(0));
